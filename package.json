@@ -1,0 +1,23 @@
+{
+  "name": "ghumakkaad",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@fontsource-variable/baloo-2": "^5.3.0",
+    "@fontsource/alfa-slab-one": "^5.3.0",
+    "@fontsource/dm-mono": "^5.3.0",
+    "@phosphor-icons/react": "^2.1.10",
+    "@supabase/supabase-js": "^2.112.3",
+    "isomorphic-dompurify": "^2.19.0",
+    "motion": "^13.1.0",
+    "next": "^14.2.35",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  }
+}

@@ -1,0 +1,597 @@
+/* horizontal clipping belongs here, not on a wrapper — putting it on a
+   div makes that div a scroll container and breaks position:sticky */
+html{overflow-x:clip}
+
+/* ============================================================
+   GHUMAKKAAD — one file, four pages, one admin.
+   Everything renders from the DATA object, which is what the
+   admin panel edits. Terrain palettes are swapped per trip.
+   ============================================================ */
+:root{
+  --paper:#F4F1E8; --paper-dim:#C9C2B2; --ink:#0A0A0C;
+  --acc:#FFB524; --acc-2:#C4870A; --scrim:10,10,12;
+  --display:'Alfa Slab One', Georgia, serif;
+  --body:'Baloo 2 Variable', 'Baloo 2', 'Trebuchet MS', sans-serif;
+  --mono:'DM Mono', ui-monospace, monospace;
+  --gut:clamp(18px,5vw,68px); --bar:74px;
+  /* Shape scale, followed on every site surface:
+       --r-card  cards, sheets, panels
+       --r-ctl   buttons and inputs
+       999px     metadata chips and filter pills
+     The admin below is deliberately excluded: it is a different
+     surface with its own plainer conventions. */
+  --r-card:6px; --r-ctl:3px;
+}
+[data-terrain="monsoon"]{--acc:#8FD08A;--acc-2:#1F5442;--ink:#070D0A;--paper:#F2F5EC;--scrim:3,9,6}
+[data-terrain="desert"] {--acc:#FF8A34;--acc-2:#B4430D;--ink:#0C0703;--paper:#F7F1E4;--scrim:14,8,3}
+[data-terrain="snow"]   {--acc:#7FC4F2;--acc-2:#1D5A80;--ink:#05090F;--paper:#EEF4FA;--scrim:5,9,15}
+
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+body{margin:0;background:var(--ink);color:var(--paper);font-family:var(--body);
+  font-size:16px;line-height:1.55;font-weight:500;-webkit-font-smoothing:antialiased}
+img,video{display:block;max-width:100%}
+a{color:inherit}
+button{font:inherit}
+:focus-visible{outline:3px solid var(--acc);outline-offset:3px;border-radius:var(--r-ctl)}
+h1,h2,h3{font-family:var(--display);font-weight:400;line-height:1.02;margin:0}
+.mono{font-family:var(--mono)}
+.hide{display:none!important}
+
+/* ---------- background stack ---------- */
+#sky{position:fixed;inset:0;z-index:0;background:var(--ink)}
+#scenes{position:fixed;inset:0;z-index:0;overflow:hidden}
+.scene-layer{position:absolute;inset:0;opacity:0;will-change:opacity}
+.scene-layer video,.scene-layer img{position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;filter:saturate(1.06) contrast(1.06) brightness(1.06)}
+.scene-layer img{z-index:0}.scene-layer video{z-index:1}
+.ken{animation:ken 28s ease-in-out infinite alternate;transform-origin:52% 45%}
+.ken--slow{animation-duration:36s;transform-origin:48% 60%}
+@keyframes ken{from{transform:scale(1.02)}to{transform:scale(1.13)}}
+#tint{position:fixed;inset:0;z-index:1;pointer-events:none}
+#rain{position:fixed;inset:0;z-index:2;pointer-events:none}
+#vignette{position:fixed;inset:0;z-index:3;pointer-events:none;
+  background:radial-gradient(130% 95% at 50% 36%,transparent 60%,rgba(0,0,0,.34) 100%)}
+main{position:relative;z-index:4}
+
+/* ---------- header ---------- */
+.headwrap{position:sticky;top:0;z-index:40}
+.topbar{position:relative;display:flex;align-items:center;gap:12px;padding:9px var(--gut);
+  background:color-mix(in srgb,var(--ink) 62%,transparent);backdrop-filter:blur(16px);
+  border-bottom:1px solid color-mix(in srgb,var(--paper) 12%,transparent)}
+.tb{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;
+  border-radius:50%;border:1px solid color-mix(in srgb,var(--paper) 24%,transparent);
+  background:none;color:var(--paper);cursor:pointer;flex:none;text-decoration:none}
+.tb:hover{background:color-mix(in srgb,var(--paper) 12%,transparent)}
+.tb svg{width:18px;height:18px}
+.crumb{flex:1;min-width:0;font-family:var(--mono);font-size:11px;opacity:.75;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crumb a{text-decoration:none}.crumb b{color:var(--acc);font-weight:400}
+.wordmark{font-family:var(--display);font-size:clamp(15px,1.4vw,19px);text-decoration:none;letter-spacing:.02em}
+
+/* day track */
+#dayTrack{max-height:0;overflow:hidden;display:flex;justify-content:center;opacity:0;
+  background:color-mix(in srgb,var(--ink) 78%,transparent);backdrop-filter:blur(16px);
+  transition:max-height .5s cubic-bezier(.16,1,.3,1),opacity .4s ease;
+  border-bottom:1px solid color-mix(in srgb,var(--paper) 12%,transparent)}
+#dayTrack.on{max-height:120px;opacity:1}
+.dt-inner{width:min(620px,94vw);margin:0 auto;padding:0;flex:0 0 auto;
+  border:1px solid color-mix(in srgb,var(--paper) 22%,transparent);border-radius:var(--r-card);overflow:hidden}
+.dt-list{display:flex}
+.dt-day{position:relative;isolation:isolate;flex:1;min-width:0;background:none;border:0;
+  cursor:pointer;padding:8px 4px 10px;text-align:center;
+  color:color-mix(in srgb,var(--paper) 88%,transparent);
+  border-right:1px solid color-mix(in srgb,var(--paper) 10%,transparent);
+  transition:color .25s}
+.dt-day:last-child{border-right:0}
+.dt-day:hover{background:color-mix(in srgb,var(--paper) 8%,transparent)}
+.dt-day b{display:block;font-family:var(--display);font-size:1.2rem;line-height:1;
+  color:currentColor;transition:color .25s}
+.dt-day span{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.1em;
+  text-transform:uppercase;margin-top:4px;opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dt-day.on{color:var(--ink);background:var(--acc)}
+@media (max-width:560px){.dt-day span{display:none}}
+
+/* ---------- shared bits ---------- */
+.kicker{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--acc);margin:0 0 .9rem}
+.hero{min-height:100svh;display:flex;flex-direction:column;justify-content:flex-end;
+  padding:0 var(--gut) clamp(40px,9vh,90px)}
+.hero h1{font-size:clamp(2.5rem,10vw,6rem);text-shadow:0 6px 60px rgba(0,0,0,.55)}
+.hero .sub{font-size:clamp(1rem,4vw,1.28rem);margin:1.1rem 0 0;max-width:30ch;
+  text-shadow:0 2px 20px rgba(0,0,0,.7);color:color-mix(in srgb,var(--paper) 90%,transparent)}
+.facts{display:flex;flex-wrap:wrap;gap:7px;margin-top:1.5rem}
+.fact{font-family:var(--mono);font-size:11px;padding:7px 12px;border-radius:999px;
+  border:1px solid color-mix(in srgb,var(--paper) 26%,transparent);
+  background:color-mix(in srgb,var(--ink) 40%,transparent);backdrop-filter:blur(6px)}
+.fact b{color:var(--acc);font-weight:400}
+.kin{display:block;perspective:700px}
+.kin .kw{display:inline-block;white-space:nowrap}
+.kin .kc{display:inline-block;transform-origin:50% 90%;will-change:transform,opacity;backface-visibility:hidden}
+.kin--intro .kc{transition:transform .85s cubic-bezier(.16,1,.3,1),opacity .6s ease}
+.pre{opacity:0;transform:translateY(26px);transition:opacity .8s cubic-bezier(.16,1,.3,1),transform .8s cubic-bezier(.16,1,.3,1)}
+.pre.seen{opacity:1;transform:none}
+
+/* pinned days */
+.day{position:relative}
+.day-stage{position:sticky;top:0;height:100svh;display:flex;align-items:center;
+  padding:clamp(96px,14vh,140px) var(--gut) clamp(40px,8vh,90px);overflow:hidden}
+.day::before{content:'';position:absolute;inset:0;z-index:-2;pointer-events:none;
+  background:linear-gradient(90deg,rgba(var(--scrim),.62) 0%,rgba(var(--scrim),.34) 46%,transparent 74%)}
+.day-in{position:relative;z-index:2;max-width:min(560px,100%)}
+.day-tag{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--acc);margin:0 0 .55rem}
+.day h2{font-size:clamp(1.9rem,8vw,3.2rem);text-shadow:0 4px 30px rgba(0,0,0,.5)}
+/* The reel needs air under the heading, and a deeper fade at the top:
+   at .85rem with a 16% fade the outgoing line sat directly under the
+   h2's descenders and read as a rendering fault rather than a reel. */
+/* The reel clips vertically, which is the point, but it was also
+   clipping horizontally and cutting the marker dot in half.
+
+   The -20px margin with 20px of padding was meant to leave the dot
+   room inside the clip box. It could not work: .acts is absolutely
+   positioned, and left:0 on an abspos child resolves against the
+   padding box, so the list started exactly on the clip edge and the
+   padding did nothing. The live dot scales to 1.7 and carries a glow,
+   both of which then fell outside.
+
+   The allowance is 40px now and .acts is pushed back in by the same
+   amount, so the list sits exactly where it did before and the dot has
+   38px of clear space to its left to grow and glow into. */
+.acts-window{position:relative;height:clamp(176px,28vh,248px);overflow:hidden;margin-top:1.5rem;
+  padding-left:40px;margin-left:-40px;
+  -webkit-mask-image:linear-gradient(180deg,transparent,#000 30%,#000 82%,transparent);
+  mask-image:linear-gradient(180deg,transparent,#000 30%,#000 82%,transparent)}
+.acts{position:absolute;left:40px;right:0;top:50%;list-style:none;margin:0;padding:0;
+  display:grid;gap:.85rem;will-change:transform}
+.acts li{position:relative;padding-left:22px;font-size:clamp(.98rem,2.9vw,1.2rem);
+  color:var(--paper);text-shadow:0 2px 16px rgba(0,0,0,.9);will-change:transform,opacity}
+/* the dot stays at the list's own left edge, so it never crosses the
+   page gutter, which on a phone is only 18px wide */
+.acts li::before{content:'';position:absolute;left:0;top:.62em;width:7px;height:7px;
+  border-radius:50%;background:var(--acc);opacity:.75;
+  transition:transform .35s cubic-bezier(.16,1,.3,1),box-shadow .35s ease,opacity .35s ease}
+.acts li.live::before{transform:scale(1.7);opacity:1;
+  box-shadow:0 0 14px color-mix(in srgb,var(--acc) 85%,transparent)}
+.meals{display:inline-block;margin-top:1.2rem;font-family:var(--mono);font-size:11px;
+  letter-spacing:.14em;text-transform:uppercase;padding:8px 14px;border-radius:var(--r-ctl);
+  background:var(--acc);color:var(--ink);box-shadow:0 6px 24px rgba(0,0,0,.5)}
+
+/* panels */
+.panel{padding:clamp(50px,9vh,96px) var(--gut);position:relative}
+.panel::before{content:'';position:absolute;inset:-1px 0;z-index:-1;pointer-events:none;
+  background:rgba(var(--scrim),.62)}
+.panel:first-of-type::before{background:linear-gradient(180deg,rgba(var(--scrim),0),rgba(var(--scrim),.62) 22%)}
+.panel-in{max-width:min(860px,100%);margin:0 auto}
+.panel h2{font-size:clamp(1.7rem,7vw,2.6rem);margin-bottom:.5rem}
+.lede{color:color-mix(in srgb,var(--paper) 74%,transparent);margin:.6rem 0 0}
+.two{display:grid;gap:clamp(18px,4vw,34px);grid-template-columns:1fr}
+@media(min-width:700px){.two{grid-template-columns:1fr 1fr}}
+.sheet,.card{background:color-mix(in srgb,var(--ink) 62%,transparent);backdrop-filter:blur(10px);
+  border:1px solid color-mix(in srgb,var(--paper) 14%,transparent);border-radius:var(--r-card);padding:18px}
+.cards{display:grid;gap:12px;margin-top:1.4rem}
+.card h3{font-size:1.05rem;margin-bottom:.5rem}
+.card p{margin:0;font-size:.92rem;color:color-mix(in srgb,var(--paper) 80%,transparent)}
+.card strong{color:var(--acc)}
+.tick{list-style:none;margin:0;padding:0;display:grid;gap:.55rem}
+.tick li{position:relative;padding-left:24px;font-size:.94rem;color:color-mix(in srgb,var(--paper) 86%,transparent)}
+.tick li::before{position:absolute;left:0;top:-1px;font-family:var(--mono);font-size:14px}
+.inc li::before{content:'+';color:var(--acc)}
+.exc li::before{content:'\2013';color:#F0928C}
+.stops{list-style:none;margin:1.2rem 0 0;padding:0}
+.stops li{display:flex;justify-content:space-between;gap:16px;padding:12px 0;font-size:.94rem;
+  border-bottom:1px dashed color-mix(in srgb,var(--paper) 16%,transparent)}
+.stops b{white-space:nowrap}
+.stops span{text-align:right;font-size:.85rem;color:color-mix(in srgb,var(--paper) 64%,transparent)}
+.pack{list-style:none;margin:1.2rem 0 0;padding:0;display:grid;gap:.5rem 18px;
+  grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+.pack li{font-size:.92rem;padding-left:22px;position:relative;color:color-mix(in srgb,var(--paper) 84%,transparent)}
+.pack li::before{content:'\2713';position:absolute;left:0;color:var(--acc);font-size:.82rem}
+.pack .must{color:var(--paper);font-weight:600}
+.charges{display:grid;gap:10px;grid-template-columns:repeat(3,1fr);margin-top:1.3rem}
+.charge{border:1px solid color-mix(in srgb,var(--paper) 16%,transparent);border-radius:var(--r-card);
+  padding:16px 10px;text-align:center;background:color-mix(in srgb,var(--ink) 50%,transparent)}
+.charge b{display:block;font-family:var(--display);font-size:1.5rem;color:var(--acc)}
+.charge span{display:block;font-size:.75rem;margin-top:.35rem;line-height:1.35;
+  color:color-mix(in srgb,var(--paper) 70%,transparent)}
+details{border-bottom:1px solid color-mix(in srgb,var(--paper) 14%,transparent)}
+summary{list-style:none;cursor:pointer;padding:16px 0;display:flex;justify-content:space-between;
+  gap:16px;font-weight:600;min-height:44px;align-items:center}
+summary::-webkit-details-marker{display:none}
+summary i{font-style:normal;color:var(--acc);transition:transform .3s}
+details[open] summary i{transform:rotate(45deg)}
+details p{margin:0 0 16px;font-size:.94rem;color:color-mix(in srgb,var(--paper) 82%,transparent)}
+.note{font-size:.82rem;color:color-mix(in srgb,var(--paper) 62%,transparent)}
+
+/* ---------- legal pages (privacy, terms, refund policy) ---------- */
+.legal-copy{margin-top:1.6rem}
+.legal-copy p{margin:0 0 1.1rem;font-size:.98rem;line-height:1.6;
+  color:color-mix(in srgb,var(--paper) 88%,transparent)}
+.legal-copy h2{font-size:1.25rem;margin:2.2rem 0 .7rem}
+.legal-copy code{font-family:var(--mono);font-size:.86em;
+  background:color-mix(in srgb,var(--paper) 12%,transparent);padding:.1em .4em;border-radius:4px}
+.legal-copy a{color:var(--acc);text-decoration:underline;text-underline-offset:2px}
+.legal-copy .note{margin-top:2rem;padding-top:1.2rem;
+  border-top:1px dashed color-mix(in srgb,var(--paper) 16%,transparent)}
+/* ---------- shared footer ---------- */
+.sitefoot{padding:clamp(44px,7vh,84px) var(--gut) clamp(84px,11vh,112px);position:relative;z-index:4;
+  border-top:1px solid color-mix(in srgb,var(--acc) 24%,transparent);
+  background:rgba(var(--scrim),.82)}
+.sf-cta{display:flex;align-items:center;justify-content:center;gap:10px;text-align:center;
+  width:100%;max-width:min(1240px,94vw);margin:0 auto clamp(30px,5vh,54px);
+  padding:16px 22px;border-radius:var(--r-card);text-decoration:none;
+  background:color-mix(in srgb,var(--acc) 14%,transparent);
+  border:1px solid color-mix(in srgb,var(--acc) 32%,transparent);
+  color:var(--paper);font-size:.92rem;font-weight:600;
+  transition:background .2s,border-color .2s}
+.sf-cta svg{color:var(--acc);flex-shrink:0}
+.sf-cta:hover{background:color-mix(in srgb,var(--acc) 24%,transparent);
+  border-color:color-mix(in srgb,var(--acc) 55%,transparent)}
+.sitefoot-grid{width:100%;max-width:min(1240px,94vw);margin:0 auto;display:grid;
+  gap:clamp(26px,4vw,56px);grid-template-columns:1.4fr 1fr 1fr;align-items:start}
+@media (max-width:760px){.sitefoot-grid{grid-template-columns:1fr 1fr}}
+@media (max-width:520px){.sitefoot-grid{grid-template-columns:1fr}}
+.sitefoot h2{font-family:var(--mono);font-weight:400;font-size:10px;letter-spacing:.18em;
+  text-transform:uppercase;color:color-mix(in srgb,var(--paper) 55%,transparent);margin:0 0 1rem}
+.sitefoot ul{list-style:none;margin:0;padding:0;display:grid;gap:.1rem}
+.sitefoot a{color:inherit;text-decoration:none;font-size:.95rem;opacity:.85;gap:9px;
+  display:inline-flex;align-items:center;min-height:44px;
+  transition:opacity .2s,padding-left .2s,color .2s}
+.sitefoot a:hover{opacity:1;padding-left:5px;color:var(--acc)}
+.sitefoot a svg{flex-shrink:0}
+.sf-mark{border-radius:50%;margin-bottom:.6rem;display:block}
+.sf-brand b{font-family:var(--display);font-weight:400;font-size:1.5rem;display:block;
+  letter-spacing:.01em}
+.sf-brand p{margin:.7rem 0 .9rem;font-size:.95rem;line-height:1.6;max-width:36ch;
+  color:color-mix(in srgb,var(--paper) 74%,transparent)}
+.sf-brand address{font-style:normal;font-size:.86rem;line-height:1.6;max-width:32ch;
+  margin-bottom:1rem;color:color-mix(in srgb,var(--paper) 58%,transparent)}
+.sitefoot-legal{width:100%;max-width:min(1240px,94vw);margin:clamp(30px,5vh,54px) auto 0;
+  padding-top:18px;border-top:1px solid color-mix(in srgb,var(--paper) 10%,transparent);
+  font-family:var(--mono);font-size:10px;display:flex;flex-wrap:wrap;gap:14px;
+  justify-content:space-between;color:color-mix(in srgb,var(--paper) 45%,transparent)}
+.sitefoot-legal .sf-top{display:inline-flex;align-items:center;gap:6px;text-decoration:none;
+  color:inherit;transition:opacity .2s,color .2s}
+.sitefoot-legal .sf-top:hover{opacity:1;color:var(--acc)}
+
+.cta{display:inline-flex;align-items:center;gap:10px;margin-top:1.6rem;text-decoration:none;
+  background:var(--acc);color:var(--ink);font-family:var(--mono);font-size:12px;letter-spacing:.12em;
+  text-transform:uppercase;padding:15px 24px;border-radius:var(--r-ctl)}
+.cta svg{width:16px;height:16px}
+.cta:hover{background:color-mix(in srgb,var(--acc) 88%,#fff)}
+
+/* ============================================================
+   THE TRIPS INDEX  (/packages)
+
+   This page used to sit inside the 860px .panel-in that trip pages
+   use, which left two thirds of a desktop window empty and put
+   three cards into a two-column grid with a hole in it. It gets its
+   own full-width scale here.
+   ============================================================ */
+.index-page{padding-bottom:clamp(30px,5vh,60px)}
+.index-wrap{width:100%;max-width:min(1240px,94vw);margin:0 auto}
+.index-page > section{padding:clamp(38px,7vh,88px) var(--gut);position:relative}
+.index-page > section::before{content:'';position:absolute;inset:-1px 0;z-index:-1;
+  background:rgba(var(--scrim),.66)}
+.index-page > section:first-of-type::before{
+  background:linear-gradient(180deg,rgba(var(--scrim),.5),rgba(var(--scrim),.74) 62%)}
+
+/* ch units here would be measured in the wrapper's body font, not the
+   display face, which squeezed the heading onto three lines */
+.index-head h1{font-size:clamp(2.3rem,6.6vw,4.4rem);letter-spacing:-.015em;max-width:16em}
+.index-head .lede{max-width:44ch;margin-top:1rem}
+
+/* ---------- terrain filter ---------- */
+.filters{display:flex;flex-wrap:wrap;gap:8px;margin:clamp(24px,3.4vh,38px) 0 clamp(20px,3vh,30px)}
+.filter{position:relative;isolation:isolate;min-height:44px;display:inline-flex;align-items:center;
+  gap:9px;padding:0 16px;border-radius:999px;cursor:pointer;
+  border:1px solid color-mix(in srgb,var(--paper) 22%,transparent);background:none;
+  color:color-mix(in srgb,var(--paper) 86%,transparent);
+  font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+  transition:border-color .25s,color .25s}
+.filter:hover{border-color:color-mix(in srgb,var(--paper) 46%,transparent);color:var(--paper)}
+.filter-n{font-size:10px;opacity:.5}
+/* the pill slides between options rather than blinking on and off */
+.filter-ink{position:absolute;inset:0;z-index:-1;border-radius:999px;background:var(--acc)}
+.filter[aria-pressed="true"]{color:var(--ink);border-color:var(--acc)}
+.filter[aria-pressed="true"] .filter-n{opacity:.6}
+/* the sliding pill is a motion element, so without it the selected
+   filter would be dark text on a dark page. Paint it directly. */
+@media (prefers-reduced-motion:reduce){
+  .filter[aria-pressed="true"]{background:var(--acc)}
+}
+
+/* ---------- cards ---------- */
+.feature-row{margin-bottom:clamp(14px,1.6vw,22px)}
+.trip-grid{display:grid;gap:clamp(14px,1.6vw,22px);
+  grid-template-columns:repeat(auto-fill,minmax(min(100%,266px),1fr))}
+.trip-card{position:relative;border-radius:var(--r-card);overflow:hidden;isolation:isolate;
+  background:#0d0e12;border:1px solid color-mix(in srgb,var(--paper) 13%,transparent);
+  text-decoration:none;color:inherit;transition:border-color .3s}
+.trip-card:hover{border-color:color-mix(in srgb,var(--acc) 55%,transparent)}
+.tc-hit{display:block;text-decoration:none;color:inherit;height:100%}
+.trip-card .tc-img,.trip-card .tc-wash{position:absolute;inset:0;z-index:0;
+  width:100%;height:100%;object-fit:cover;transition:transform .9s cubic-bezier(.16,1,.3,1)}
+/* .tc-img is a replaced element (an <img>): position:absolute;inset:0 alone
+   sizes it from its OWN intrinsic aspect ratio, not the container — one axis
+   stretches to fill, the other follows the photo's native ratio. On a card
+   whose photo is a different shape than the card box, that either pushes the
+   image past the card's edge (invisible, since overflow:hidden clips it and
+   the visible slice is usually fine) or leaves it short of the far edge,
+   exposing the terrain wash underneath (visible, and it looked like a
+   rendering fault on the desktop feature card). Explicit width/height:100%
+   above forces the same box as the container in both dimensions before
+   object-fit:cover crops the photo to it, which is what cover is supposed
+   to guarantee. */
+.trip-card:hover .tc-img{transform:scale(1.05)}
+/* no photograph on file yet: a terrain wash, not an empty grey box */
+.tc-wash{display:block}
+.tc-wash[data-terrain="snow"]   {background:linear-gradient(150deg,#215F86,#05090F)}
+.tc-wash[data-terrain="monsoon"]{background:linear-gradient(150deg,#215B47,#050D0A)}
+.tc-wash[data-terrain="desert"] {background:linear-gradient(150deg,#B4430D,#140803)}
+.tc-wash[data-terrain="beach"]  {background:linear-gradient(150deg,#0E6F76,#03181A)}
+.tc-body{position:relative;z-index:2;display:flex;flex-direction:column;justify-content:flex-end;
+  min-height:312px;padding:17px;
+  background:linear-gradient(180deg,rgba(6,6,9,.1) 0%,rgba(6,6,9,.6) 50%,rgba(6,6,9,.93) 100%)}
+.tc-meta{font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;
+  color:#fff;opacity:.72}
+.tc-name{font-family:var(--display);font-weight:400;line-height:1.04;letter-spacing:-.01em;
+  font-size:clamp(1.3rem,1.9vw,1.7rem);color:#fff;margin-top:.4rem}
+.tc-blurb{margin-top:.65rem;font-size:.95rem;line-height:1.5;max-width:40ch;
+  color:color-mix(in srgb,#fff 78%,transparent)}
+.tc-foot{margin-top:1.05rem;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.tc-price{font-family:var(--mono);font-size:12px;color:var(--acc);white-space:nowrap}
+.tc-go{flex:none;display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;
+  border-radius:50%;background:var(--acc);color:var(--ink);transition:transform .3s}
+.trip-card:hover .tc-go{transform:translateX(3px)}
+.trip-card--draft .tc-price{color:color-mix(in srgb,#fff 74%,transparent)}
+/* the lead card runs wide, so its blurb has somewhere to sit */
+.trip-card--wide .tc-body{min-height:clamp(320px,42vh,420px);padding:clamp(20px,3vw,34px)}
+.trip-card--wide .tc-name{font-size:clamp(1.8rem,3.8vw,2.9rem)}
+.trip-card--wide .tc-foot{justify-content:flex-start;flex-wrap:wrap;gap:14px 18px;margin-top:1.4rem}
+/* nowrap because a two-line button reads as a layout fault, and the
+   label matches the one on the landing page's cards: one intent, one word */
+.trip-card--wide .tc-cta{font-family:var(--mono);font-size:11px;letter-spacing:.12em;
+  text-transform:uppercase;white-space:nowrap;display:inline-flex;align-items:center;gap:9px;
+  background:var(--acc);color:var(--ink);padding:12px 18px;border-radius:var(--r-ctl)}
+.trip-card--wide .tc-go{display:none}
+@media (min-width:900px){
+  .trip-card--wide .tc-body{max-width:66%;
+    background:linear-gradient(100deg,rgba(6,6,9,.92) 0%,rgba(6,6,9,.7) 60%,rgba(6,6,9,0) 100%)}
+}
+
+.empty-note{margin-top:1.4rem;color:color-mix(in srgb,var(--paper) 76%,transparent)}
+.linkish{background:none;border:0;padding:0;color:var(--acc);cursor:pointer;font:inherit;
+  text-decoration:underline;text-underline-offset:3px}
+
+/* ---------- departures, grouped by month ----------
+   A dozen rows with a hairline under each one is the hardest
+   version of this to scan, so they cluster by month instead. */
+.depart-wrap h2{font-size:clamp(1.7rem,5vw,2.9rem);letter-spacing:-.012em;margin-top:.2rem}
+.months{display:grid;gap:clamp(20px,3vw,40px);margin-top:clamp(22px,3vh,34px);
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,242px),1fr))}
+.month h3{font-family:var(--mono);font-weight:400;font-size:11px;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--acc);padding-bottom:10px;
+  border-bottom:1px solid color-mix(in srgb,var(--paper) 24%,transparent)}
+.month ul{list-style:none;margin:0;padding:0}
+.month li + li{border-top:1px dashed color-mix(in srgb,var(--paper) 12%,transparent)}
+.month a{display:grid;grid-template-columns:50px 1fr;gap:1px 12px;padding:11px 0;
+  text-decoration:none;transition:padding-left .25s cubic-bezier(.16,1,.3,1)}
+.month a:hover{padding-left:6px}
+.month a b{font-family:var(--mono);font-weight:400;font-size:12px;color:var(--acc);
+  grid-row:span 2;align-self:center}
+.month a span{font-weight:600;font-size:.98rem}
+.month a i{font-style:normal;font-family:var(--mono);font-size:10px;
+  color:color-mix(in srgb,var(--paper) 58%,transparent)}
+
+/* ---------- when it runs ----------
+   Every open departure, from the departure_dates table, grouped by month.
+   A trip with forty-six of them is unreadable as one flat row of chips. */
+.dep-months{display:grid;gap:clamp(20px,3vw,32px);margin-top:clamp(20px,3vh,30px);
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,232px),1fr))}
+.dep-month h3{font-family:var(--mono);font-weight:400;font-size:10px;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--acc);padding-bottom:9px;
+  border-bottom:1px solid color-mix(in srgb,var(--paper) 22%,transparent)}
+.dep-month ul{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.dep-chip{display:inline-flex;align-items:baseline;gap:8px;min-height:44px;padding:8px 13px;
+  border-radius:999px;text-decoration:none;
+  border:1px solid color-mix(in srgb,var(--paper) 24%,transparent);
+  background:color-mix(in srgb,var(--ink) 52%,transparent);backdrop-filter:blur(6px);
+  transition:border-color .25s,background .25s,transform .25s cubic-bezier(.16,1,.3,1)}
+.dep-chip:hover{border-color:var(--acc);background:color-mix(in srgb,var(--ink) 68%,transparent);
+  transform:translateY(-2px)}
+.dep-chip b{font-family:var(--mono);font-weight:400;font-size:12.5px;white-space:nowrap}
+.dep-chip span{font-family:var(--mono);font-size:9.5px;text-transform:uppercase;
+  letter-spacing:.08em;color:color-mix(in srgb,var(--paper) 52%,transparent)}
+/* a date that costs more says so, and says how much */
+.dep-chip i{font-style:normal;font-family:var(--mono);font-size:10px;white-space:nowrap;
+  padding:2px 7px;border-radius:999px;background:var(--acc);color:var(--ink)}
+.dep-chip.is-season{border-color:color-mix(in srgb,var(--acc) 52%,transparent)}
+.dep-note{margin-top:clamp(18px,2.4vh,26px);max-width:52ch}
+@media (max-width:520px){
+  .dep-month ul{gap:7px}
+  .dep-chip{padding:8px 11px;gap:6px}
+}
+
+/* ---------- price bar ---------- */
+.pricebar{position:fixed;left:0;right:0;bottom:0;z-index:50;transform:translateY(110%);
+  background:color-mix(in srgb,var(--ink) 94%,transparent);backdrop-filter:blur(20px);
+  border-top:1px solid color-mix(in srgb,var(--paper) 18%,transparent);
+  padding-bottom:env(safe-area-inset-bottom,0px);transition:transform .5s cubic-bezier(.2,.8,.2,1)}
+.pricebar.up{transform:translateY(0)}
+.pb-main{display:flex;align-items:center;gap:10px;padding:11px var(--gut)}
+.pb-price{flex:1;min-width:0}
+.pb-price b{display:block;font-family:var(--display);font-size:1.5rem;line-height:1.05}
+.pb-price span{display:block;font-family:var(--mono);font-size:10px;margin-top:3px;
+  color:color-mix(in srgb,var(--paper) 66%,transparent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pb-open{min-height:44px;border:1px solid color-mix(in srgb,var(--paper) 26%,transparent);
+  background:none;color:var(--paper);font-family:var(--mono);font-size:11px;letter-spacing:.08em;
+  text-transform:uppercase;padding:0 14px;border-radius:var(--r-ctl);cursor:pointer;flex:none}
+.pb-cta{min-height:44px;flex:none;display:inline-flex;align-items:center;gap:8px;text-decoration:none;
+  background:var(--acc);color:var(--ink);font-family:var(--mono);font-size:11px;letter-spacing:.08em;
+  text-transform:uppercase;padding:0 16px;border-radius:var(--r-ctl)}
+.pb-cta svg{width:16px;height:16px;flex:none;margin-top:-1px}
+.pb-cta .pb-label{margin-right:-.08em}
+.pb-panel{max-height:0;overflow:hidden;transition:max-height .4s cubic-bezier(.4,0,.2,1)}
+.pb-panel.open{max-height:74svh;overflow-y:auto}
+.pb-inner{padding:6px var(--gut) 18px;display:grid;gap:16px}
+.field label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.14em;
+  text-transform:uppercase;color:color-mix(in srgb,var(--paper) 62%,transparent);margin-bottom:8px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{min-height:44px;border:1px solid color-mix(in srgb,var(--paper) 24%,transparent);background:none;
+  color:var(--paper);font-family:var(--body);font-weight:600;font-size:.88rem;padding:7px 14px;
+  border-radius:var(--r-ctl);cursor:pointer;text-align:left}
+.chip small{display:block;font-family:var(--mono);font-size:9px;font-weight:400;opacity:.55;margin-top:1px}
+.chip b{display:block;font-family:var(--mono);font-size:9px;color:var(--acc);font-weight:400}
+.chip[aria-pressed="true"]{background:var(--acc);color:var(--ink);border-color:var(--acc)}
+.chip[aria-pressed="true"] small,.chip[aria-pressed="true"] b{color:inherit;opacity:.75}
+.dates{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px}
+.dates .chip{flex:none;white-space:nowrap}
+.steplab{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.12em;
+  text-transform:uppercase;opacity:.6;margin-bottom:5px}
+.stepper{display:inline-flex;align-items:center;border:1px solid color-mix(in srgb,var(--paper) 24%,transparent);
+  border-radius:var(--r-ctl);overflow:hidden}
+.stepper button{width:46px;height:44px;background:none;border:0;color:var(--paper);font-size:1.15rem;cursor:pointer}
+.stepper button:hover{background:color-mix(in srgb,var(--paper) 10%,transparent)}
+.stepper output{min-width:46px;text-align:center;font-family:var(--mono)}
+.breakdown{font-family:var(--mono);font-size:11px;line-height:1.75;
+  color:color-mix(in srgb,var(--paper) 70%,transparent);
+  border-top:1px solid color-mix(in srgb,var(--paper) 15%,transparent);padding-top:12px}
+.breakdown div{display:flex;justify-content:space-between;gap:12px}
+.breakdown .total{color:var(--paper);font-size:13px;padding-top:7px;margin-top:7px;
+  border-top:1px solid color-mix(in srgb,var(--paper) 15%,transparent)}
+
+/* ---------- 404 ---------- */
+.lost{min-height:100svh;display:grid;align-content:center;padding:clamp(80px,14vh,140px) var(--gut)}
+.lost-in{width:100%;max-width:min(760px,94vw);margin:0 auto}
+.lost h1{font-size:clamp(2.4rem,9vw,4.6rem);letter-spacing:-.015em}
+.lost .lede{max-width:38ch}
+.lost-list{list-style:none;margin:clamp(26px,4vh,40px) 0 0;padding:0;
+  border-top:1px solid color-mix(in srgb,var(--paper) 22%,transparent)}
+.lost-list a{display:flex;align-items:baseline;justify-content:space-between;gap:16px;
+  padding:14px 0;text-decoration:none;
+  border-bottom:1px dashed color-mix(in srgb,var(--paper) 16%,transparent);
+  transition:padding-left .25s cubic-bezier(.16,1,.3,1)}
+.lost-list a:hover{padding-left:6px}
+.lost-list b{font-family:var(--display);font-weight:400;font-size:clamp(1.1rem,2.6vw,1.5rem)}
+.lost-list span{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+  color:color-mix(in srgb,var(--paper) 58%,transparent);white-space:nowrap}
+.lost-actions{display:flex;flex-wrap:wrap;align-items:center;gap:22px}
+.lost-home{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+  margin-top:1.6rem;color:color-mix(in srgb,var(--paper) 70%,transparent);
+  text-decoration:underline;text-underline-offset:4px}
+.lost-home:hover{color:var(--acc)}
+
+/* ============================================================
+   A dark admin stylesheet used to sit here and nothing referenced it:
+   the panel renders the light `body.adm` set at the bottom of this
+   file. #admin, .adm-wrap, .btn, .tab, .adm-card, .grid2, .f, .hint,
+   .dayrow, .mini and .lock were all unused. The save toast is shared
+   by both, so it stays.
+   ============================================================ */
+.saved{position:fixed;left:50%;bottom:26px;transform:translate(-50%,120%);z-index:99;
+  background:var(--acc);color:#12131A;padding:11px 20px;border-radius:var(--r-ctl);
+  font-family:var(--mono);font-size:.82rem;box-shadow:0 10px 30px rgba(0,0,0,.5);
+  transition:transform .35s cubic-bezier(.16,1,.3,1)}
+.saved.on{transform:translate(-50%,0)}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  #rain{display:none}
+  .pre{opacity:1!important;transform:none!important}
+  .ken{animation:none}
+  .pricebar{transform:none!important}
+}
+
+/* ============================================================
+   ADMIN — light, plain, close to the panel you already use.
+   ============================================================ */
+body.adm{background:#F3EFE6;color:#1A1A1A;font-family:'Baloo 2 Variable','Baloo 2',sans-serif}
+.adm-bar{background:#241C10;color:#F3EFE6;padding:12px clamp(16px,4vw,40px);
+  display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.adm-bar b{font-family:'Alfa Slab One',serif;font-weight:400;font-size:.95rem;letter-spacing:.04em}
+.adm-bar a,.adm-bar button{color:#F3EFE6;background:none;border:0;cursor:pointer;
+  font-size:.85rem;text-decoration:none;opacity:.8}
+.adm-bar a:hover,.adm-bar button:hover{opacity:1}
+.adm-bar .sp{flex:1}
+.adm-main{max-width:980px;margin:0 auto;padding:26px clamp(16px,4vw,40px) 90px}
+.adm-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;
+  flex-wrap:wrap;margin-bottom:22px}
+.adm-head h1{font-family:'Alfa Slab One',serif;font-weight:400;font-size:1.9rem;color:#141414}
+.adm-head p{margin:.3rem 0 0;color:#6B6252;font-size:.9rem}
+.pill{background:#141414;color:#F3EFE6;border:0;border-radius:999px;padding:11px 18px;
+  cursor:pointer;font-size:.85rem;font-weight:600;text-decoration:none;display:inline-block}
+.pill:hover{background:#C4870A}
+.pill-ghost{background:none;color:#141414;border:1px solid rgba(0,0,0,.25)}
+.pill-ghost:hover{background:rgba(0,0,0,.06);color:#141414}
+.tbl{width:100%;border-collapse:collapse;background:#FBF9F4;border:1px solid rgba(0,0,0,.1);
+  border-radius:12px;overflow:hidden}
+.tbl th{text-align:left;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.14em;
+  text-transform:uppercase;color:#8A8172;padding:14px 16px;border-bottom:1px solid rgba(0,0,0,.08)}
+.tbl td{padding:14px 16px;border-bottom:1px solid rgba(0,0,0,.06);font-size:.92rem;vertical-align:middle}
+.tbl tr:last-child td{border-bottom:0}
+.tbl tr:hover td{background:rgba(0,0,0,.02)}
+.tbl .name{font-weight:600;color:#141414}
+.tbl .price{color:#C4870A;font-weight:600}
+.tag{font-size:.72rem;padding:4px 10px;border-radius:999px;background:#E4EFE1;color:#2E6B3E;font-weight:600}
+.tag.off{background:#EFE1E1;color:#8A3232}
+.act a,.act button{color:#C4870A;background:none;border:0;cursor:pointer;font-size:.85rem;
+  text-decoration:none;padding:0 6px}
+.act .del{color:#C0392B}
+.acard{background:#FBF9F4;border:1px solid rgba(0,0,0,.1);border-radius:12px;
+  padding:20px;margin-bottom:16px}
+.acard > h3{font-family:'Alfa Slab One',serif;font-weight:400;font-size:1.05rem;color:#141414;
+  margin:0 0 4px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.acard .sub{color:#7A7264;font-size:.82rem;margin:0 0 16px}
+.g2{display:grid;gap:14px;grid-template-columns:1fr}
+@media(min-width:700px){.g2{grid-template-columns:1fr 1fr}}
+.fld label{display:block;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.1em;
+  text-transform:uppercase;color:#8A8172;margin-bottom:6px}
+.fld input,.fld textarea,.fld select{width:100%;background:#fff;border:1px solid rgba(0,0,0,.18);
+  color:#1A1A1A;border-radius:7px;padding:10px 12px;font-family:'Baloo 2 Variable','Baloo 2 Variable','Baloo 2',sans-serif;font-size:.93rem}
+.fld textarea{min-height:80px;resize:vertical}
+.fld input:focus,.fld textarea:focus,.fld select:focus{outline:none;border-color:#C4870A}
+.rows{display:grid;gap:8px}
+.row{display:flex;gap:8px;align-items:center}
+.row input{flex:1}
+.x{width:34px;height:38px;flex:none;border:1px solid rgba(0,0,0,.18);background:#fff;color:#C0392B;
+  border-radius:7px;cursor:pointer;font-size:1rem;line-height:1}
+.x:hover{background:#FBECEA}
+.addbtn{margin-top:10px;border:1px dashed rgba(0,0,0,.28);background:none;color:#5C5548;
+  padding:9px 14px;border-radius:7px;cursor:pointer;font-size:.84rem}
+.addbtn:hover{border-color:#C4870A;color:#C4870A}
+.daycard{border:1px solid rgba(0,0,0,.12);border-radius:10px;padding:14px;margin-bottom:10px;background:#fff}
+.daytop{display:flex;gap:8px;align-items:center;margin-bottom:10px}
+.daytop input{flex:1}
+.mv{width:34px;height:38px;flex:none;border:1px solid rgba(0,0,0,.18);background:#fff;
+  border-radius:7px;cursor:pointer;color:#5C5548}
+.mv:hover{background:#F0EBE1}
+.dategrid{display:grid;gap:8px;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr))}
+.daterow{display:flex;gap:8px;align-items:center;background:#fff;border:1px solid rgba(0,0,0,.14);
+  border-radius:7px;padding:6px 8px}
+.daterow input[type=date]{flex:1;border:0;padding:4px}
+.daterow label{display:flex;align-items:center;gap:5px;font-size:.75rem;color:#6B6252;
+  white-space:nowrap;text-transform:none;letter-spacing:0;margin:0;font-family:'Baloo 2 Variable','Baloo 2',sans-serif}
+.savebar{position:sticky;bottom:0;background:#F3EFE6;border-top:1px solid rgba(0,0,0,.12);
+  padding:14px 0;display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:20px}
+.savebar .note{color:#7A7264;font-size:.8rem;flex:1;min-width:180px}
+/* ---------- admin sign-in ----------
+   Plain like the rest of the panel, but it is the first thing anyone
+   sees, so it carries the wordmark. Labels sit above their inputs
+   rather than in the placeholder, where they vanish as you type. */
+.lock-page{display:grid;place-items:center;min-height:100svh;padding:32px 20px 60px}
+.lockbox{width:100%;max-width:380px;background:#FBF9F4;border:1px solid rgba(0,0,0,.1);
+  border-radius:12px;padding:clamp(24px,5vw,34px)}
+.lock-mark{font-family:'Alfa Slab One',serif;font-size:.78rem;letter-spacing:.16em;
+  color:#C4870A;margin:0 0 1.5rem}
+.lockbox h1{font-family:'Alfa Slab One',serif;font-weight:400;font-size:1.9rem;
+  line-height:1.05;color:#141414;margin:0}
+.lock-sub{color:#6B6252;font-size:.9rem;line-height:1.55;margin:.6rem 0 1.6rem}
+.lockbox .fld{margin-bottom:14px}
+.lockbox .fld label{color:#5C5548}
+.fld-err{margin:8px 0 0;font-size:.82rem;color:#A32B1E}
+.lockbox input[aria-invalid="true"]{border-color:#A32B1E}
+.lock-go{width:100%;margin-top:6px;min-height:46px}
+.lock-go:disabled{opacity:.6;cursor:default}
+.lock-back{display:inline-block;margin-top:18px;font-size:.85rem;color:#6B6252;
+  text-decoration:underline;text-underline-offset:3px}
+.lock-back:hover{color:#C4870A}
